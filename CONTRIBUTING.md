@@ -14,8 +14,8 @@ applies and adds the repository's own workflow.
 
 Hegemony is licensed under the GNU Affero General Public License, version 3 or
 any later version (`AGPL-3.0-or-later`). Your contribution is licensed under the
-same terms, and you keep the copyright in it. There is no Contributor License
-Agreement.
+same terms, and contributing it transfers no copyright to the project. There is
+no Contributor License Agreement.
 
 ## Sign off every commit (DCO)
 
