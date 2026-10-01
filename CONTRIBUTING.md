@@ -30,8 +30,8 @@ Signed-off-by: Your Name <your.email@example.com>
 ```
 
 The DCO GitHub App checks every commit in a pull request: the sign-off's name
-and email must match the commit's author or committer. Merge commits and commits
-by GitHub bot accounts are skipped.
+and email must match the commit's author. Merge commits and commits by GitHub
+bot accounts are skipped.
 
 To add a missing sign-off to every commit on your branch, then update the pull
 request:
@@ -47,11 +47,11 @@ Use the name of the branch your pull request targets in place of `main`.
 
 A commit written by an AI coding agent is signed off by the person who directs
 the agent and submits the work; the agent cannot make the DCO's promise itself.
-That person is the commit's committer and adds their own `Signed-off-by:`, while
-the agent stays visible as the commit's author or in a `Co-authored-by:`
-trailer. An agent must never sign off in its own name. Setting
-`GIT_COMMITTER_NAME` and `GIT_COMMITTER_EMAIL` in the agent's environment and
-having it commit with `git commit -s` produces exactly that.
+That person is the commit's author and adds their own `Signed-off-by:`, and the
+agent is credited in a `Co-authored-by:` trailer. An agent must never sign off
+in its own name. Setting `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`,
+`GIT_COMMITTER_NAME` and `GIT_COMMITTER_EMAIL` to that person in the agent's
+environment and having it commit with `git commit -s` produces exactly that.
 
 ## Questions
 
