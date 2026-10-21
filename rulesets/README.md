@@ -71,6 +71,19 @@ at 06:17 UTC (07:17 in winter and 08:17 in summer in Prague), when changes to th
 rulesets or monitor merge into `main`, and on manual dispatch. Pull requests
 run only the offline tests and export validation. The live comparison and its
 organization credential are restricted to `hegemony-sh/.github` on `main`.
+That job selects the organization's self-hosted runner through the
+`CI_RUNNER` variable, as the platform repository's workflows do, and falls
+back to `ubuntu-latest` when the variable is unset. The offline job stays on
+GitHub-hosted `ubuntu-latest` on purpose: this repository is public and the
+job runs on pull requests from forks, whose code must not reach a shared
+self-hosted runner.
+
+The checker, [`scripts/check_ruleset_drift.py`](../scripts/check_ruleset_drift.py),
+and its tests are shared with the platform repository, `hegemony-sh/hegemony`,
+which runs the same two files against its own repository rulesets
+(`--repo hegemony-sh/hegemony`, recorded under `.github/rulesets/` there);
+this repository runs them with `--org hegemony-sh`. The two copies are kept
+byte-identical, so a change made in one repository is copied to the other.
 
 The checker reads the full organization inventory, follows pagination, and
 compares rulesets by ID. It detects changed definitions, missing live rulesets,
@@ -80,9 +93,11 @@ actors. It ignores response-only metadata, the ordering of known unordered
 lists, and an omitted `repository_name.protected` value when it means `false`.
 Unknown policy fields remain part of the comparison.
 
-The checker makes GET requests only. It does not update rulesets or rewrite
-the recorded configuration. A discrepancy needs a reviewed policy change or a
-correction of the live settings through the maintenance process below.
+The checker makes GET requests only and never updates a ruleset. The
+comparison does not touch the recorded files either; only `--export` (below)
+rewrites them, from the live definitions, for a reviewed refresh. A
+discrepancy needs a reviewed policy change or a correction of the live
+settings through the maintenance process below.
 
 ### Configure the credential
 
@@ -137,20 +152,34 @@ Python 3.10 or newer is sufficient; the checker and tests use the standard
 library only. From the repository root:
 
 ```sh
-python3 -m unittest discover -s tests -v
-python3 scripts/check_ruleset_drift.py --validate-only
+python3 -m unittest tests/test_ruleset_drift.py -v
+python3 scripts/check_ruleset_drift.py --org hegemony-sh --validate-only
 ```
 
 For a live check, set `ORG_RULESETS_TOKEN` in your environment using the same
 permissions as the Actions secret, then run:
 
 ```sh
-python3 scripts/check_ruleset_drift.py
+python3 scripts/check_ruleset_drift.py --org hegemony-sh
 ```
 
-Exit codes are `0` for a match (or successful offline validation), `1` for drift,
-and `2` when the check cannot complete. Offline validation is explicitly marked
-as such and never claims that the live configuration was checked.
+To refresh the recorded files from the live definitions, after a reviewed
+change in the organization settings or when a new ruleset was created, run
+the same command with `--export`, review the diff and commit it:
+
+```sh
+python3 scripts/check_ruleset_drift.py --org hegemony-sh --export
+```
+
+The export reads from GitHub and writes only to `rulesets/`. A live ruleset
+that has no file yet gets one named after it. A file recorded without an
+`id` (one written before GitHub assigned it) is matched by name once, and
+the check reports the id to record as a difference until it is recorded.
+
+Exit codes are `0` for a match (or a completed offline validation or export),
+`1` for drift, and `2` when the check cannot complete. Offline validation is
+explicitly marked as such and never claims that the live configuration was
+checked.
 
 ## Review and apply changes
 
@@ -179,6 +208,10 @@ recheck its repository targeting and bypass actors.
 See [GitHub's organization ruleset management documentation](https://docs.github.com/en/organizations/managing-organization-settings/managing-rulesets-for-repositories-in-your-organization).
 
 ## Export and compare
+
+`python3 scripts/check_ruleset_drift.py --org hegemony-sh --export` records
+every live ruleset at once (see [Local verification](#local-verification)).
+The manual steps below do the same for one ruleset with GitHub CLI and `jq`.
 
 The organization settings UI can export a ruleset. With suitable API access,
 use the **organization** endpoint so the response includes repository targeting.
