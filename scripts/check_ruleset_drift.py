@@ -403,14 +403,24 @@ def export_live(live: dict[int, Json], recorded: dict[Path, Json], directory: Pa
     """Write every live ruleset into the recorded files; return the paths written."""
     by_id = {rule["id"]: path for path, rule in recorded.items() if "id" in rule}
     by_name = {rule["name"]: path for path, rule in recorded.items() if "id" not in rule}
+    for name, path in by_name.items():
+        matches = [i for i, rule in live.items() if rule["name"] == name and i not in by_id]
+        if len(matches) > 1:
+            raise CheckError(f"{path.name}: several live rulesets are named {name!r}; record the id")
+    reserved = set(recorded)
     written: list[Path] = []
     for rule_id, rule in sorted(live.items()):
         path = by_id.get(rule_id) or by_name.pop(rule["name"], None)
         if path is None:
             stem = re.sub(r"[^A-Za-z0-9._-]+", "-", rule["name"]).strip("-") or str(rule_id)
             path = directory / f"{stem}.json"
-            if path in written or path in recorded:
+            if path in reserved:
                 path = directory / f"{stem}-{rule_id}.json"
+                suffix = 2
+                while path in reserved:
+                    path = directory / f"{stem}-{rule_id}-{suffix}.json"
+                    suffix += 1
+        reserved.add(path)
         document = {key: rule[key] for key in EXPORT_ORDER if key in rule}
         document.update(
             {
@@ -493,8 +503,8 @@ def main(argv: list[str] | None = None) -> int:
                 written = export_live(live, recorded, rules_dir)
                 stale = sorted(
                     path.name
-                    for path, rule in recorded.items()
-                    if "id" in rule and rule["id"] not in live
+                    for path in recorded
+                    if path not in written
                 )
                 message = (
                     f"Exported {len(written)} live {scope.label} ruleset(s) of {scope.source} to "

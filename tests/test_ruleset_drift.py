@@ -655,6 +655,85 @@ class CommandTests(unittest.TestCase):
                 9, json.loads((directory / "rule-1.json").read_text(encoding="utf-8"))["id"]
             )
 
+    def test_export_reserves_all_recorded_and_generated_paths(self) -> None:
+        """Repeated filename collisions never overwrite another live or stale rule."""
+        for occupied_id in (1, 9):
+            with self.subTest(occupied_id=occupied_id), tempfile.TemporaryDirectory() as tmp:
+                directory = Path(tmp)
+                recorded = {
+                    directory / "same.json": example(20, SCOPE, name="stale"),
+                    directory / "same-7.json": example(occupied_id, SCOPE, name="existing"),
+                    directory / "same-7-2.json": example(21, SCOPE, name="also stale"),
+                }
+                for path, rule in recorded.items():
+                    path.write_text(json.dumps(rule), encoding="utf-8")
+                live = {
+                    occupied_id: example(occupied_id, SCOPE, name="existing"),
+                    6: example(6, SCOPE, name="same-7-3"),
+                    7: example(7, SCOPE, name="same"),
+                }
+                written = drift.export_live(live, recorded, directory)
+                self.assertEqual(3, len(set(written)))
+                self.assertEqual(live, {
+                    rule["id"]: rule
+                    for path in written
+                    for rule in [json.loads(path.read_text(encoding="utf-8"))]
+                })
+                self.assertIn(directory / "same-7-4.json", written)
+                for path in recorded.keys() - set(written):
+                    self.assertEqual(recorded[path], json.loads(path.read_text(encoding="utf-8")))
+
+    def test_export_rejects_ambiguous_names_before_writing(self) -> None:
+        """Ambiguous ID-less matches fail without changing any recorded file."""
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            self.write_fixtures(directory, example(None, SCOPE))
+            before = {path: path.read_bytes() for path in directory.iterdir()}
+            live = {
+                1: example(1, SCOPE, name="unrelated"),
+                7: example(7, SCOPE),
+                8: example(8, SCOPE),
+            }
+            with patch.object(drift, "fetch_live", return_value=live):
+                status, output = self.run_check(
+                    ["--export"], environment={SCOPE.token_variable: "test"}, rules_dir=directory
+                )
+            self.assertEqual(2, status)
+            self.assertIn("several live rulesets", output)
+            self.assertEqual(before, {path: path.read_bytes() for path in directory.iterdir()})
+
+    def test_export_name_matching_excludes_claimed_ids(self) -> None:
+        """An ID match takes priority even when its ID sorts after the name match."""
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            recorded = {
+                directory / "by-id.json": example(8, SCOPE),
+                directory / "by-name.json": example(None, SCOPE),
+            }
+            live = {7: example(7, SCOPE), 8: example(8, SCOPE)}
+            written = drift.export_live(live, recorded, directory)
+            self.assertEqual(set(recorded), set(written))
+            for filename, expected_id in (("by-id.json", 8), ("by-name.json", 7)):
+                self.assertEqual(expected_id, json.loads((directory / filename).read_text())["id"])
+
+    def test_export_reports_stale_idless_files(self) -> None:
+        """Report every untouched recording, including names claimed by an ID match."""
+        for live in ({}, {7: example(7, SCOPE)}, {7: example(7, SCOPE, name="gone")}):
+            with self.subTest(live=live), tempfile.TemporaryDirectory() as tmp:
+                directory = Path(tmp)
+                self.write_fixtures(
+                    directory, example(None, SCOPE, name="gone"), example(7, SCOPE)
+                )
+                stale = directory / "rule-1.json"
+                before = stale.read_bytes()
+                with patch.object(drift, "fetch_live", return_value=live):
+                    status, output = self.run_check(
+                        ["--export"], environment={SCOPE.token_variable: "test"}, rules_dir=directory
+                    )
+                self.assertEqual(0, status)
+                self.assertIn("no longer live (left as they are): rule-1.json", output)
+                self.assertEqual(before, stale.read_bytes())
+
     def test_summary_fences_and_log_indentation_contain_data(self) -> None:
         with (
             tempfile.TemporaryDirectory() as tmp,
