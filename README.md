@@ -11,3 +11,5 @@ Shared configuration and community files for the `hegemony-sh` organization.
 - [Contributing](CONTRIBUTING.md): organization-wide contribution and DCO guidance.
 - [Organization rulesets](rulesets/README.md): exported branch and tag policies,
   their relationship to repository rules, and how to maintain them.
+- [Drift monitoring](rulesets/README.md#automated-drift-check): daily comparisons
+  with live organization settings, credential setup, and failure notifications.

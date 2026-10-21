@@ -17,6 +17,7 @@ All three rulesets are active and target **every repository** through
 The ref patterns below select the branches or tags within those repositories.
 The exports preserve the existing policy, including its bypasses. Merging these
 files does not update GitHub settings; there is no automatic deployment.
+The [drift check](#automated-drift-check) compares these files with live settings.
 
 ## Policies
 
@@ -62,6 +63,94 @@ administrator role does not gain organization bypass by being added to a
 repository ruleset. Conversely, an organization administrator's existing bypass
 does not bypass a new repository ruleset with an empty bypass list. Check the
 authenticated release identity at both levels when changing release automation.
+
+## Automated drift check
+
+[Organization ruleset drift](../.github/workflows/ruleset-drift.yml) runs daily
+at 06:17 UTC (07:17 in winter and 08:17 in summer in Prague), when changes to the
+rulesets or monitor merge into `main`, and on manual dispatch. Pull requests
+run only the offline tests and export validation. The live comparison and its
+organization credential are restricted to `hegemony-sh/.github` on `main`.
+
+The checker reads the full organization inventory, follows pagination, and
+compares rulesets by ID. It detects changed definitions, missing live rulesets,
+and live rulesets missing from this repository. The comparison includes
+repository targeting, exclusions, ref patterns, rules, enforcement and bypass
+actors. It ignores response-only metadata, the ordering of known unordered
+lists, and an omitted `repository_name.protected` value when it means `false`.
+Unknown policy fields remain part of the comparison.
+
+The checker makes GET requests only. It does not update rulesets or rewrite
+the recorded configuration. A discrepancy needs a reviewed policy change or a
+correction of the live settings through the maintenance process below.
+
+### Configure the credential
+
+Add a repository Actions secret named **`ORG_RULESETS_TOKEN`** in
+[Settings → Secrets and variables → Actions](https://github.com/hegemony-sh/.github/settings/secrets/actions).
+Use a token authorized to list and read the organization's complete rulesets,
+including bypass actors. The workflow's built-in `GITHUB_TOKEN` is insufficient
+for this organization-wide API access.
+
+- A classic PAT needs `admin:org`, and its owner needs access to manage the
+  organization's rulesets.
+- For a fine-grained PAT, select `hegemony-sh` as resource owner and grant
+  organization **Administration: read and write**. GitHub currently requires
+  this permission even for these GET endpoints and bypass visibility; the
+  checker itself performs only reads.
+
+See the permissions for [listing organization rulesets](https://docs.github.com/en/rest/orgs/rules#get-all-organization-repository-rulesets)
+and [reading a ruleset](https://docs.github.com/en/rest/orgs/rules#get-an-organization-repository-ruleset).
+Store the token in the Actions secret, and replace it there when it expires or
+is rotated. No organization credential is exposed to pull-request jobs.
+
+After merging the workflow and configuring the secret, open
+[Actions → Organization ruleset drift](https://github.com/hegemony-sh/.github/actions/workflows/ruleset-drift.yml),
+choose **Run workflow**, and select `main`. A successful comparison establishes
+that the secret can read the full inventory and that the committed rules match.
+A manual run on another branch performs offline validation only.
+
+### Results and notifications
+
+A successful live check reports the number of matching rulesets. Drift fails
+the workflow and puts readable differences in the job summary and logs, with
+`recorded` as the old side and `live` as the new side. Missing or expired
+credentials, hidden bypass information, invalid exports and API failures also
+fail the workflow, with an error explaining that drift could not be checked.
+An access failure is never reported as a match.
+
+Use [GitHub Actions notifications](https://docs.github.com/en/subscriptions-and-notifications/how-tos/managing-github-actions-notifications)
+and select **Only notify for failed workflows** to receive failures without
+successful-run notifications. Scheduled-run notifications go to the user who
+last changed the cron schedule, subject to their notification settings.
+Unresolved drift continues to fail subsequent checks; the workflow does not
+open issues or send separate messages.
+
+GitHub can delay scheduled runs and disables schedules in public repositories
+after 60 days without repository activity. If this governance repository is
+inactive, re-enable the workflow in Actions; a manual run remains available.
+See [GitHub's schedule behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+
+### Local verification
+
+Python 3.10 or newer is sufficient; the checker and tests use the standard
+library only. From the repository root:
+
+```sh
+python3 -m unittest discover -s tests -v
+python3 scripts/check_ruleset_drift.py --validate-only
+```
+
+For a live check, set `ORG_RULESETS_TOKEN` in your environment using the same
+permissions as the Actions secret, then run:
+
+```sh
+python3 scripts/check_ruleset_drift.py
+```
+
+Exit codes are `0` for a match (or successful offline validation), `1` for drift,
+and `2` when the check cannot complete. Offline validation is explicitly marked
+as such and never claims that the live configuration was checked.
 
 ## Review and apply changes
 

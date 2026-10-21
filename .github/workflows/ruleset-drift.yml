@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2025-2026 Jakub Trávník <jakub.travnik@gmail.com>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Organization ruleset drift
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/ruleset-drift.yml
+      - rulesets/**
+      - scripts/check_ruleset_drift.py
+      - tests/**
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/ruleset-drift.yml
+      - rulesets/**
+      - scripts/check_ruleset_drift.py
+      - tests/**
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ruleset-drift-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate drift checker and exports
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - name: Test the drift checker
+        run: python3 -m unittest discover -s tests -v
+      - name: Validate recorded rulesets
+        run: python3 scripts/check_ruleset_drift.py --validate-only
+
+  drift:
+    name: Compare live organization rulesets
+    needs: validate
+    # Organization credentials are available only to the main-branch monitor.
+    # Pull requests (including forks) run the offline checks above.
+    if: >-
+      github.repository == 'hegemony-sh/.github' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - name: Compare live organization rulesets
+        env:
+          ORG_RULESETS_TOKEN: ${{ secrets.ORG_RULESETS_TOKEN }}
+        run: python3 scripts/check_ruleset_drift.py
