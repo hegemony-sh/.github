@@ -2,6 +2,12 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+# The organization rulesets recorded under rulesets/ are compared with the
+# live ones, so the recorded policy cannot quietly diverge from the enforced
+# one. The platform repository, hegemony-sh/hegemony, checks its own
+# repository rulesets the same way, with the same checker and tests;
+# rulesets/README.md explains both.
+
 name: Organization ruleset drift
 
 on:
@@ -19,6 +25,7 @@ on:
       - scripts/check_ruleset_drift.py
       - tests/**
   schedule:
+    # Daily at 06:17 UTC, the same time as the platform repository's check.
     - cron: "17 6 * * *"
   workflow_dispatch:
 
@@ -31,17 +38,26 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate drift checker and exports
+    name: Validate drift checker and recorded rulesets
+    # GitHub-hosted on purpose: this repository is public and this job runs
+    # on pull requests, a fork's included, so the code it runs must not reach
+    # the organization's self-hosted runners. The live comparison below runs
+    # main only and selects CI_RUNNER like the platform repository's workflows.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+
+      # The checker and its tests use the standard library only, so the
+      # system interpreter does.
       - name: Test the drift checker
-        run: python3 -m unittest discover -s tests -v
+        run: python3 -m unittest tests/test_ruleset_drift.py -v
+
       - name: Validate recorded rulesets
-        run: python3 scripts/check_ruleset_drift.py --validate-only
+        run: python3 scripts/check_ruleset_drift.py --org "${GITHUB_REPOSITORY_OWNER}" --validate-only
 
   drift:
     name: Compare live organization rulesets
@@ -52,13 +68,15 @@ jobs:
       github.repository == 'hegemony-sh/.github' &&
       github.ref == 'refs/heads/main' &&
       github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+
       - name: Compare live organization rulesets
         env:
           ORG_RULESETS_TOKEN: ${{ secrets.ORG_RULESETS_TOKEN }}
-        run: python3 scripts/check_ruleset_drift.py
+        run: python3 scripts/check_ruleset_drift.py --org "${GITHUB_REPOSITORY_OWNER}"
