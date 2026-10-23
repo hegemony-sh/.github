@@ -1,5 +1,6 @@
 <!--
-SPDX-FileCopyrightText: 2025-2026 Jakub Trávník <jakub.travnik@gmail.com>
+SPDX-FileCopyrightText: 2025-2026 Rexonix s.r.o.
+SPDX-FileContributor: Jakub Trávník <jakub.travnik@gmail.com>
 
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
@@ -16,6 +17,26 @@ Hegemony is licensed under the GNU Affero General Public License, version 3 or
 any later version (`AGPL-3.0-or-later`). Your contribution is licensed under the
 same terms, and contributing it transfers no copyright to the project. There is
 no Contributor License Agreement.
+
+The project's own files name Rexonix s.r.o. as the copyright holder and Jakub
+Trávník as the author. Their [REUSE](https://reuse.software/) header puts the
+holder in `SPDX-FileCopyrightText` and, directly after it, the author in
+`SPDX-FileContributor`, in the file's own comment syntax:
+
+<!-- REUSE-IgnoreStart -->
+
+```text
+# SPDX-FileCopyrightText: 2025-2026 Rexonix s.r.o.
+# SPDX-FileContributor: Jakub Trávník <jakub.travnik@gmail.com>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+```
+
+<!-- REUSE-IgnoreEnd -->
+
+If you do not write on behalf of Rexonix s.r.o., you keep the copyright in your
+contribution and may add your own `SPDX-FileCopyrightText` line to the files you
+change, as REUSE recommends.
 
 ## Sign off every commit (DCO)
 
