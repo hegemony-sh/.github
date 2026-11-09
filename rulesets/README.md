@@ -30,7 +30,7 @@ The [drift check](#automated-drift-check) compares these files with live setting
 
 Both branch policies require a pull request, code-owner review and resolution
 of review discussions, and block deletion and force pushes. Their general
-approval count is zero. `main` dismisses stale approvals and allows only merge
+approval count is one. `main` dismisses stale approvals and allows only merge
 commits; `develop` keeps approvals and allows merge commits or squash merges.
 Both enable Copilot code review, with review-on-push and draft review disabled.
 The JSON also preserves GitHub's extra-approval setting for unattributed changes.
