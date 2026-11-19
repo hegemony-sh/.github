@@ -13,7 +13,7 @@ organization settings on 2026-10-21. Their rules, ref patterns and bypass actors
 were also checked against the inherited rules visible on
 `hegemony-sh/hegemony`.
 
-All three rulesets are active and target **every repository** through
+Both rulesets are active and target **every repository** through
 `conditions.repository_name.include: ["~ALL"]`, with no repository exclusions.
 The ref patterns below select the branches or tags within those repositories.
 The exports preserve the existing policy, including its bypasses. Merging these
@@ -25,21 +25,19 @@ The [drift check](#automated-drift-check) compares these files with live setting
 | File | Live organization ruleset | Ref pattern |
 | --- | --- | --- |
 | [protect-main.json](protect-main.json) | [21484617](https://github.com/organizations/hegemony-sh/settings/rules/21484617) | `refs/heads/main` |
-| [protect-develop.json](protect-develop.json) | [21484992](https://github.com/organizations/hegemony-sh/settings/rules/21484992) | `refs/heads/develop` |
 | [protect-release-tags.json](protect-release-tags.json) | [21485846](https://github.com/organizations/hegemony-sh/settings/rules/21485846) | `refs/tags/v*` |
 
-Both branch policies require a pull request, code-owner review and resolution
-of review discussions, and block deletion and force pushes. Their general
-approval count is one. `main` dismisses stale approvals and allows only merge
-commits; `develop` keeps approvals and allows merge commits or squash merges.
-Both enable Copilot code review, with review-on-push and draft review disabled.
+The branch policy requires a pull request, code-owner review and resolution
+of review discussions, and blocks deletion and force pushes. Its approval
+count is one; it dismisses stale approvals and allows only merge commits. It
+enables Copilot code review, with review-on-push and draft review disabled.
 The JSON also preserves GitHub's extra-approval setting for unattributed changes.
 
 The tag policy blocks updates, deletion and force pushes. It does not restrict
-creation of new matching tags or require signatures. None of these three
+creation of new matching tags or require signatures. Neither of these
 policies requires CI status checks or targets LTS branches such as `3.x`.
 
-All three allow `OrganizationAdmin` to bypass with mode `always`. The files
+Both allow `OrganizationAdmin` to bypass with mode `always`. The files
 retain that existing access policy. A narrower release identity or a different
 bypass policy would be a separate policy change.
 
